@@ -3,17 +3,24 @@ module Imgedit where
 import Data.List
 
 
-type Pixel = (Red, Green, Blue)
+type Pixel = (Int, Int, Int)
 type Row = [Pixel]
 type Red = Int
 type Green = Int
 type Blue = Int
+data BlendMode = Add
+               | Sub
+               | Mul
+               | Screen
+               | Burn
+               | Overlay
+                 deriving (Show)
 data PPM = PPM
          { _path :: FilePath
          , _mode :: Word
          , _size :: (Int, Int)
-         , _max :: Int
-         , _img :: [Row]
+         , _max  :: Int
+         , _img  :: [Row]
          } deriving (Show)
 
 initImg           :: FilePath -> String -> PPM
@@ -31,6 +38,21 @@ exportImg ppm =  "P" ++ show (_mode ppm) ++ "\n"
                  ++ show (_max ppm) ++ "\n"
                  ++ (unlines . map (unlines . map (unwords . map show . threeTupleToLs))) (_img ppm)
                  -- ++ (unlines . map unwords . map show . threeTupleToLs) (_img ppm) ++ "\n"
+
+blendMap         :: (Int -> Int -> Int) -> Pixel -> Pixel -> Pixel
+blendMap f p1 p2 =  to3tuple $ zipWith (g) (threeTupleToLs p1) (threeTupleToLs p2)
+                    where g     :: Int -> Int -> Int
+                          g x y =  if f x y < 0
+                                     then 0
+                                     else if f x y > 255
+                                            then 255
+                                            else f x y
+
+blend         :: BlendMode -> PPM -> PPM -> PPM
+blend m p1 p2 =  case m of
+                   Add -> p1 { _img = zipWith (zipWith (blendMap (+))) (_img p1) (_img p2) }
+                   Sub -> p1 { _img = zipWith (zipWith (blendMap (-))) (_img p1) (_img p2) }
+
 
 to3tuple :: [a] -> (a, a, a)
 to3tuple l =  (head l, (head . tail) l, (head . tail . tail) l)
